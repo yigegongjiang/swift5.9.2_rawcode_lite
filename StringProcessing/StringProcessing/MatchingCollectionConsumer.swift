@@ -1,14 +1,3 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
 protocol MatchingCollectionConsumer: CollectionConsumer {
   associatedtype Match
   func matchingConsuming(
@@ -16,7 +5,6 @@ protocol MatchingCollectionConsumer: CollectionConsumer {
     in range: Range<Consumed.Index>
   ) -> (upperBound: Consumed.Index, match: Match)?
 }
-
 extension MatchingCollectionConsumer {
   func consuming(
     _ consumed: Consumed,
@@ -25,9 +13,6 @@ extension MatchingCollectionConsumer {
     matchingConsuming(consumed, in: range)?.upperBound
   }
 }
-
-// MARK: Consuming from the back
-
 protocol BidirectionalMatchingCollectionConsumer:
   MatchingCollectionConsumer, BidirectionalCollectionConsumer
 {
@@ -36,7 +21,6 @@ protocol BidirectionalMatchingCollectionConsumer:
     in range: Range<Consumed.Index>
   ) -> (lowerBound: Consumed.Index, match: Match)?
 }
-
 extension BidirectionalMatchingCollectionConsumer {
   func consumingBack(
     _ consumed: Consumed,
@@ -45,4 +29,3 @@ extension BidirectionalMatchingCollectionConsumer {
     matchingConsumingBack(consumed, in: range)?.lowerBound
   }
 }
-

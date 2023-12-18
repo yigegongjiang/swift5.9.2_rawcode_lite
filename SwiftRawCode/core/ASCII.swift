@@ -1,45 +1,26 @@
-//===--- ASCII.swift ------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
 extension Unicode {
   @frozen
   public enum ASCII {}
 }
-
 extension Unicode.ASCII: Unicode.Encoding {
   public typealias CodeUnit = UInt8
   public typealias EncodedScalar = CollectionOfOne<CodeUnit>
-
   @inlinable
   public static var encodedReplacementCharacter: EncodedScalar {
-    return EncodedScalar(0x1a) // U+001A SUBSTITUTE; best we can do for ASCII
+    return EncodedScalar(0x1a) 
   }
-
-  /// Returns whether the given code unit represents an ASCII scalar
-  @_alwaysEmitIntoClient
   public static func isASCII(_ x: CodeUnit) -> Bool { return UTF8.isASCII(x) }
-
   @inline(__always)
   @inlinable
   public static func _isScalar(_ x: CodeUnit) -> Bool {
     return true
   }
-
   @inline(__always)
   @inlinable
   public static func decode(_ source: EncodedScalar) -> Unicode.Scalar {
     return Unicode.Scalar(_unchecked: UInt32(
         source.first._unsafelyUnwrappedUnchecked))
   }
-  
   @inline(__always)
   @inlinable
   public static func encode(
@@ -48,7 +29,6 @@ extension Unicode.ASCII: Unicode.Encoding {
     guard source.value < (1&<<7) else { return nil }
     return EncodedScalar(UInt8(truncatingIfNeeded: source.value))
   }
-
   @inline(__always)
   @inlinable
   public static func transcode<FromEncoding: Unicode.Encoding>(
@@ -67,21 +47,16 @@ extension Unicode.ASCII: Unicode.Encoding {
     }
     return encode(FromEncoding.decode(content))
   }
-
   @frozen
   public struct Parser {
     @inlinable
     public init() { }
   }
-  
   public typealias ForwardParser = Parser
   public typealias ReverseParser = Parser
 }
-
 extension Unicode.ASCII.Parser: Unicode.Parser {
   public typealias Encoding = Unicode.ASCII
-
-  /// Parses a single Unicode scalar value from `input`.
   @inlinable
   public mutating func parseScalar<I: IteratorProtocol>(
     from input: inout I

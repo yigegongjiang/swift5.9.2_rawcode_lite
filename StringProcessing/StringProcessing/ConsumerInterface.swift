@@ -1,28 +1,10 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
-@_implementationOnly import _RegexParser
-
 extension Character {
   var _singleScalarAsciiValue: UInt8? {
     guard self != "\r\n" else { return nil }
     return asciiValue
   }
 }
-
 extension DSLTree.Node {
-  /// Attempt to generate a consumer from this AST node
-  ///
-  /// A consumer is a Swift closure that matches against
-  /// the front of an input range
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction? {
@@ -31,19 +13,14 @@ extension DSLTree.Node {
       return try a.generateConsumer(opts)
     case .customCharacterClass(let ccc):
       return try ccc.generateConsumer(opts)
-
     case .quotedLiteral:
-      // TODO: Should we handle this here?
       return nil
-
     case let .convertedRegexLiteral(n, _):
       return try n.generateConsumer(opts)
-
     case .orderedChoice, .conditional, .concatenation,
         .capture, .nonCapturingGroup,
         .quantification, .trivia, .empty,
         .ignoreCapturesInTypedOutput, .absentFunction: return nil
-
     case .consumer:
       fatalError("FIXME: Is this where we handle them?")
     case .matcher:
@@ -53,13 +30,11 @@ extension DSLTree.Node {
     }
   }
 }
-
 extension DSLTree._AST.Atom {
   var singleScalarASCIIValue: UInt8? {
     return ast.singleScalarASCIIValue
   }
 }
-
 extension Character {
   func generateConsumer(
     _ opts: MatchingOptions
@@ -82,8 +57,6 @@ extension Character {
         }
       }
     case .unicodeScalar:
-      // TODO: This should only be reachable from character class emission, can
-      // we guarantee that? Otherwise we'd want a different matching behavior.
       let consumers = unicodeScalars.map { s in consumeScalar {
         isCaseInsensitive
           ? $0.properties.lowercaseMapping == s.properties.lowercaseMapping
@@ -100,7 +73,6 @@ extension Character {
     }
   }
 }
-
 extension DSLTree.Atom {
   var singleScalarASCIIValue: UInt8? {
     switch self {
@@ -114,24 +86,15 @@ extension DSLTree.Atom {
       return nil
     }
   }
-  
-  // TODO: If ByteCodeGen switches first, then this is unnecessary for
-  // top-level nodes, but it's also invoked for `.atom` members of a custom CC
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction? {
     switch self {
     case let .char(c):
       return try c.generateConsumer(opts)
-
     case let .scalar(s):
-      // A scalar always matches the same as a single scalar character. This
-      // means it must match a whole grapheme in grapheme semantic mode, but
-      // can match a single scalar in scalar semantic mode.
       return try Character(s).generateConsumer(opts)
-
     case .any:
-      // FIXME: Should this be a total ordering?
       if opts.semanticLevel == .graphemeCluster {
         return { input, bounds in
           input.index(after: bounds.lowerBound)
@@ -141,7 +104,6 @@ extension DSLTree.Atom {
           true
         }
       }
-
     case .anyNonNewline:
       switch opts.semanticLevel {
       case .graphemeCluster:
@@ -157,35 +119,23 @@ extension DSLTree.Atom {
             : input.unicodeScalars.index(after: bounds.lowerBound)
         }
       }
-
     case .dot:
       throw Unreachable(".atom(.dot) should be handled by emitDot")
-
     case .assertion:
-      // TODO: We could handle, should this be total?
       return nil
     case .characterClass(let cc):
       return cc.generateConsumer(opts)
-
     case .backreference:
-      // TODO: Should we handle?
       return nil
-
     case .symbolicReference:
-      // TODO: Should we handle?
       return nil
-
     case .changeMatchingOptions:
-      // TODO: Should we handle?
       return nil
-
     case let .unconverted(a):
       return try a.ast.generateConsumer(opts)
     }
-
   }
 }
-
 extension DSLTree.Atom.CharacterClass {
   func generateConsumer(_ opts: MatchingOptions) -> MEProgram.ConsumeFunction {
     let model = asRuntimeModel(opts)
@@ -194,19 +144,10 @@ extension DSLTree.Atom.CharacterClass {
     }
   }
 }
-
 extension String {
-  /// Compares this string to `other` using the loose matching rule UAX44-LM2,
-  /// which ignores case, whitespace, underscores, and nearly all medial
-  /// hyphens.
-  ///
-  /// FIXME: Only ignore medial hyphens
-  /// FIXME: Special case for U+1180 HANGUL JUNGSEONG O-E
-  /// See https://www.unicode.org/reports/tr44/#Matching_Rules
   fileprivate func isEqualByUAX44LM2(to other: String) -> Bool {
     var index = startIndex
     var otherIndex = other.startIndex
-    
     while index < endIndex && otherIndex < other.endIndex {
       if self[index].isWhitespace || self[index] == "-" || self[index] == "_" {
         formIndex(after: &index)
@@ -216,47 +157,29 @@ extension String {
         other.formIndex(after: &otherIndex)
         continue
       }
-      
       if self[index] != other[otherIndex] && self[index].lowercased() != other[otherIndex].lowercased() {
         return false
       }
-
       formIndex(after: &index)
       other.formIndex(after: &otherIndex)
     }
     return index == endIndex && otherIndex == other.endIndex
   }
 }
-
 func consumeName(_ name: String, opts: MatchingOptions) -> MEProgram.ConsumeFunction {
   let consume = consumeFunction(for: opts)
   return consume(propertyScalarPredicate {
-    // FIXME: name aliases not covered by $0.nameAlias are missed
-    // e.g. U+FEFF has both 'BYTE ORDER MARK' and 'BOM' as aliases
     $0.name?.isEqualByUAX44LM2(to: name) == true
       || $0.nameAlias?.isEqualByUAX44LM2(to: name) == true
   })
 }
-
-// TODO: This is basically an AST interpreter, which would
-// be good or interesting to build regardless, and serves
-// as a compiler fall-back path
-
 extension AST.Atom {
-  // TODO: clarify difference between this and
-  // literal character value...
-  //
-  // For now this just extracts `.char` case
-  //
-  // TODO: Shouldn't this be parameterized over matching
-  // level?
   var singleCharacter: Character? {
     switch kind {
     case .char(let c): return c
     default: return nil
     }
   }
-
   var singleScalar: UnicodeScalar? {
     switch kind {
     case .scalar(let s): return s.value
@@ -266,7 +189,6 @@ extension AST.Atom {
     default: return nil
     }
   }
-  
   var singleScalarASCIIValue: UInt8? {
     if let s = singleScalar, s.isASCII {
        return UInt8(ascii: s)
@@ -278,7 +200,6 @@ extension AST.Atom {
       return nil
     }
   }
-  
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction? {
@@ -287,12 +208,9 @@ extension AST.Atom {
       assertionFailure(
         "Should have been handled by tree conversion")
       return consumeScalar { $0 == s.value }
-
     case let .char(c):
       assertionFailure(
         "Should have been handled by tree conversion")
-
-      // TODO: Match level?
       return { input, bounds in
         let low = bounds.lowerBound
         guard input[low] == c else {
@@ -300,34 +218,25 @@ extension AST.Atom {
         }
         return input.index(after: low)
       }
-
     case let .property(p):
       return try p.generateConsumer(opts)
-
     case let .namedCharacter(name):
       return consumeName(name, opts: opts)
-      
     case .dot:
       assertionFailure(
         "Should have been handled by tree conversion")
       fatalError(".atom(.dot) is handled in emitDot")
-
     case .caretAnchor, .dollarAnchor:
-      // handled in emitAssertion
       return nil
     case .escaped:
-      // handled in emitAssertion and emitCharacterClass
       return nil
-
     case .scalarSequence, .keyboardControl, .keyboardMeta,
         .keyboardMetaControl, .backreference, .subpattern, .callout,
         .backtrackingDirective, .changeMatchingOptions, .invalid:
-      // FIXME: implement
       return nil
     }
   }
 }
-
 extension DSLTree.CustomCharacterClass.Member {
   func asAsciiBitset(
     _ opts: MatchingOptions,
@@ -357,7 +266,6 @@ extension DSLTree.CustomCharacterClass.Member {
     }
     return nil
   }
-  
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction {
@@ -374,8 +282,6 @@ extension DSLTree.CustomCharacterClass.Member {
       guard let rhsChar = high.literalCharacterValue else {
         throw Unsupported("\(high) in range")
       }
-
-      // We must have NFC single scalar bounds.
       guard let lhs = lhsChar.singleScalar, lhs.isNFC else {
         throw RegexCompilationError.invalidCharacterClassRangeOperand(lhsChar)
       }
@@ -385,20 +291,13 @@ extension DSLTree.CustomCharacterClass.Member {
       guard lhs <= rhs else {
         throw Unsupported("Invalid range \(low)-\(high)")
       }
-
       let isCaseInsensitive = opts.isCaseInsensitive
       let isCharacterSemantic = opts.semanticLevel == .graphemeCluster
-      
       return { input, bounds in
         let curIdx = bounds.lowerBound
         let nextIndex = isCharacterSemantic
           ? input.index(after: curIdx)
           : input.unicodeScalars.index(after: curIdx)
-
-        // Under grapheme semantics, we compare based on single NFC scalars. If
-        // such a character is not single scalar under NFC, the match fails. In
-        // scalar semantics, we compare the exact scalar value to the NFC
-        // bounds.
         let scalar = isCharacterSemantic ? input[curIdx].singleNFCScalar
                                          : input.unicodeScalars[curIdx]
         guard let scalar = scalar else { return nil }
@@ -406,14 +305,10 @@ extension DSLTree.CustomCharacterClass.Member {
         if scalarRange.contains(scalar) {
           return nextIndex
         }
-
-        // Check for case insensitive matches.
         func matchesCased(
           _ cased: (UnicodeScalar.Properties) -> String
         ) -> Bool {
           let casedStr = cased(scalar.properties)
-          // In character semantic mode, we need to map to NFC. In scalar
-          // semantics, we should have an exact scalar.
           let mapped = isCharacterSemantic ? casedStr.singleNFCScalar
                                            : casedStr.singleScalar
           guard let mapped = mapped else { return false }
@@ -431,10 +326,8 @@ extension DSLTree.CustomCharacterClass.Member {
         }
         return nil
       }
-
     case let .custom(ccc):
       return try ccc.generateConsumer(opts)
-
     case let .intersection(lhs, rhs):
       let lhs = try lhs.generateConsumer(opts)
       let rhs = try rhs.generateConsumer(opts)
@@ -449,7 +342,6 @@ extension DSLTree.CustomCharacterClass.Member {
         }
         return nil
       }
-
     case let .subtraction(lhs, rhs):
       let lhs = try lhs.generateConsumer(opts)
       let rhs = try rhs.generateConsumer(opts)
@@ -461,7 +353,6 @@ extension DSLTree.CustomCharacterClass.Member {
         }
         return nil
       }
-
     case let .symmetricDifference(lhs, rhs):
       let lhs = try lhs.generateConsumer(opts)
       let rhs = try rhs.generateConsumer(opts)
@@ -484,12 +375,10 @@ extension DSLTree.CustomCharacterClass.Member {
         return nil
       }
     case .trivia:
-      // TODO: Should probably strip this earlier...
       return { _, _ in nil }
     }
   }
 }
-
 extension DSLTree.CustomCharacterClass {
   func asAsciiBitset(_ opts: MatchingOptions) -> AsciiBitset? {
     return members.reduce(
@@ -503,11 +392,9 @@ extension DSLTree.CustomCharacterClass {
       }
     )
   }
-  
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction {
-    // NOTE: Easy way to implement, obviously not performant
     let consumers = try members.map {
       try $0.generateConsumer(opts)
     }
@@ -526,10 +413,7 @@ extension DSLTree.CustomCharacterClass {
     }
   }
 }
-
-// NOTE: Conveniences, though not most performant
 typealias ScalarPredicate = (UnicodeScalar) -> Bool
-
 private func scriptScalarPredicate(_ s: Unicode.Script) -> ScalarPredicate {
   { Unicode.Script($0) == s }
 }
@@ -545,15 +429,12 @@ private func categoriesScalarPredicate(_ gcs: [Unicode.GeneralCategory]) -> Scal
 private func propertyScalarPredicate(_ p: @escaping (Unicode.Scalar.Properties) -> Bool) -> ScalarPredicate {
   { p($0.properties) }
 }
-
 func consumeScalar(
   _ p: @escaping ScalarPredicate
 ) -> MEProgram.ConsumeFunction {
   { input, bounds in
-    // TODO: bounds check?
     let curIdx = bounds.lowerBound
     if p(input.unicodeScalars[curIdx]) {
-      // TODO: semantic level?
       return input.unicodeScalars.index(after: curIdx)
     }
     return nil
@@ -575,14 +456,12 @@ func consumeCharacterWithSingleScalar(
 ) -> MEProgram.ConsumeFunction {
   { input, bounds in
     let curIdx = bounds.lowerBound
-    
     if input[curIdx].hasExactlyOneScalar && p(input[curIdx].unicodeScalars.first!) {
       return input.index(after: curIdx)
     }
     return nil
   }
 }
-
 func consumeFunction(
   for opts: MatchingOptions
 ) -> (@escaping ScalarPredicate) -> MEProgram.ConsumeFunction {
@@ -590,33 +469,26 @@ func consumeFunction(
     ? consumeCharacterWithLeadingScalar
     : consumeScalar
 }
-
 extension AST.Atom.CharacterProperty {
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction {
-    // Handle inversion for us, albeit not efficiently
     func invert(
       _ p: @escaping MEProgram.ConsumeFunction
     ) -> MEProgram.ConsumeFunction {
       return { input, bounds in
         if p(input, bounds) != nil { return nil }
-
-        // TODO: bounds check
         return opts.semanticLevel == .graphemeCluster
           ? input.index(after: bounds.lowerBound)
           : input.unicodeScalars.index(after: bounds.lowerBound)
       }
     }
-
     let consume = consumeFunction(for: opts)
     let preInversion: MEProgram.ConsumeFunction =
     try {
       switch kind {
-        // TODO: is this modeled differently?
       case .any:
         return { input, bounds in
-          // TODO: bounds check?
           return input.index(after: bounds.lowerBound)
         }
       case .assigned:
@@ -624,86 +496,58 @@ extension AST.Atom.CharacterProperty {
           $0.properties.generalCategory != .unassigned
         }
       case .ascii:
-        // Note: ASCII must look at the whole character, not just the first
-        // scalar. That is, "e\u{301}" is not an ASCII character, even though
-        // the first scalar is.
         return opts.semanticLevel == .graphemeCluster
           ? consumeCharacterWithSingleScalar(\.isASCII)
           : consumeScalar(\.isASCII)
-
       case .generalCategory(let p):
         return try p.generateConsumer(opts)
-//        fatalError("TODO: Map categories: \(p)")
-
       case .binary(let prop, value: let value):
         let cons = try prop.generateConsumer(opts)
         return value ? cons : invert(cons)
-
       case .script(let s):
         return consume(scriptScalarPredicate(s))
-
       case .scriptExtension(let s):
         return consume(scriptExtensionScalarPredicate(s))
-        
       case .named(let n):
         return consumeName(n, opts: opts)
-
       case .age(let major, let minor):
         return consume {
           guard let age = $0.properties.age else { return false }
           return age <= (major, minor)
         }
-        
       case .numericValue(let value):
         return consume { $0.properties.numericValue == value }
-        
       case .numericType(let type):
         return consume { $0.properties.numericType == type }
-        
       case .ccc(let ccc):
         return consume { $0.properties.canonicalCombiningClass == ccc }
-        
       case .mapping(.lowercase, let value):
         return consume { $0.properties.lowercaseMapping == value }
-
       case .mapping(.uppercase, let value):
         return consume { $0.properties.uppercaseMapping == value }
-
       case .mapping(.titlecase, let value):
         return consume { $0.properties.titlecaseMapping == value }
-
       case .block(let b):
         throw Unsupported("TODO: map block: \(b)")
-
       case .posix(let p):
         return p.generateConsumer(opts)
-
       case .pcreSpecial(let s):
         throw Unsupported("TODO: map PCRE special: \(s)")
-
       case .javaSpecial(let s):
         throw Unsupported("TODO: map Java special: \(s)")
-
       case .invalid:
         throw Unreachable("Expected valid property")
       }
     }()
-
     if !isInverted { return preInversion }
     return invert(preInversion)
   }
 }
-
 extension Unicode.BinaryProperty {
-  // FIXME: Semantic level, vet for precise defs
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction {
     let consume = consumeFunction(for: opts)
-
-    // Note if you implement support for any of the below, you need to adjust
-    // the switch in Sema.swift to not have it be diagnosed as unsupported
-    // (potentially guarded on deployment version).
     switch self {
     case .asciiHexDigit:
       return consume(propertyScalarPredicate {
@@ -739,7 +583,7 @@ extension Unicode.BinaryProperty {
       return consume(propertyScalarPredicate(\.isDeprecated))
     case .defaultIgnorableCodePoint:
       return consume(propertyScalarPredicate(\.isDefaultIgnorableCodePoint))
-    case .diacratic: // spelling?
+    case .diacratic: 
       return consume(propertyScalarPredicate(\.isDiacritic))
     case .emojiModifierBase:
       if #available(macOS 10.12.2, iOS 10.2, tvOS 10.1, watchOS 3.1.1, *) {
@@ -772,7 +616,7 @@ extension Unicode.BinaryProperty {
     case .extender:
       return consume(propertyScalarPredicate(\.isExtender))
     case .extendedPictographic:
-      break // NOTE: Stdlib has this data internally
+      break 
     case .fullCompositionExclusion:
       return consume(propertyScalarPredicate(\.isFullCompositionExclusion))
     case .graphemeBase:
@@ -841,7 +685,7 @@ extension Unicode.BinaryProperty {
       return consume(propertyScalarPredicate(\.isSentenceTerminal))
     case .terminalPunctuation:
       return consume(propertyScalarPredicate(\.isTerminalPunctuation))
-    case .unifiedIdiograph: // spelling?
+    case .unifiedIdiograph: 
       return consume(propertyScalarPredicate(\.isUnifiedIdeograph))
     case .uppercase:
       return consume(propertyScalarPredicate(\.isUppercase))
@@ -857,19 +701,14 @@ extension Unicode.BinaryProperty {
         .expandsOnNFKC:
       throw Unsupported("Unicode-deprecated: \(self)")
     }
-
     throw Unsupported("TODO: map prop \(self)")
   }
 }
-
 extension Unicode.POSIXProperty {
-  // FIXME: Semantic level, vet for precise defs
   func generateConsumer(
     _ opts: MatchingOptions
   ) -> MEProgram.ConsumeFunction {
     let consume = consumeFunction(for: opts)
-
-    // FIXME: modes, etc
     switch self {
     case .alnum:
       return consume(propertyScalarPredicate {
@@ -880,7 +719,6 @@ extension Unicode.POSIXProperty {
         s.properties.generalCategory == .spaceSeparator ||
         s == "\t"
       }
-
     case .graph:
       return consume(propertyScalarPredicate { p in
         !(
@@ -892,31 +730,24 @@ extension Unicode.POSIXProperty {
       })
     case .print:
       return consume(propertyScalarPredicate { p in
-        // FIXME: better def
         p.generalCategory != .control
       })
     case .word:
       return consume(propertyScalarPredicate { p in
-        // FIXME: better def
         p.isAlphabetic || p.numericType != nil
         || p.isJoinControl
-        || p.isDash// marks and connectors...
+        || p.isDash
       })
-
     case .xdigit:
-      return consume(propertyScalarPredicate(\.isHexDigit)) // or number
-
+      return consume(propertyScalarPredicate(\.isHexDigit)) 
     }
   }
 }
-
 extension Unicode.ExtendedGeneralCategory {
-  // FIXME: Semantic level
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction {
     let consume = consumeFunction(for: opts)
-
     switch self {
     case .letter:
       return consume(categoriesScalarPredicate([
@@ -924,23 +755,19 @@ extension Unicode.ExtendedGeneralCategory {
         .titlecaseLetter, .modifierLetter,
         .otherLetter
       ]))
-
     case .mark:
       return consume(categoriesScalarPredicate([
         .nonspacingMark, .spacingMark, .enclosingMark
       ]))
-
     case .number:
       return consume(categoriesScalarPredicate([
         .decimalNumber, .letterNumber, .otherNumber
       ]))
-
     case .symbol:
       return consume(categoriesScalarPredicate([
         .mathSymbol, .currencySymbol, .modifierSymbol,
         .otherSymbol
       ]))
-
     case .punctuation:
       return consume(categoriesScalarPredicate([
         .connectorPunctuation, .dashPunctuation,
@@ -948,22 +775,18 @@ extension Unicode.ExtendedGeneralCategory {
         .initialPunctuation, .finalPunctuation,
         .otherPunctuation
       ]))
-
     case .separator:
       return consume(categoriesScalarPredicate([
         .spaceSeparator, .lineSeparator, .paragraphSeparator
       ]))
-
     case .other:
       return consume(categoriesScalarPredicate([
         .control, .format, .surrogate, .privateUse, .unassigned
       ]))
-
     case .casedLetter:
       return consume(categoriesScalarPredicate([
         .uppercaseLetter, .lowercaseLetter, .titlecaseLetter
       ]))
-
     case .control:
       return consume(categoryScalarPredicate(.control))
     case .format:

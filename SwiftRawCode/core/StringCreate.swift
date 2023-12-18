@@ -1,39 +1,16 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-// String Creation Helpers
-//===----------------------------------------------------------------------===//
-
 internal func _allASCII(_ input: UnsafeBufferPointer<UInt8>) -> Bool {
   if input.isEmpty { return true }
-
-  // NOTE: Avoiding for-in syntax to avoid bounds checks
-  //
-  // TODO(String performance): SIMD-ize
-  //
   let ptr = input.baseAddress._unsafelyUnwrappedUnchecked
   var i = 0
-
   let count = input.count
   let stride = MemoryLayout<UInt>.stride
   let address = Int(bitPattern: ptr)
-
   let wordASCIIMask = UInt(truncatingIfNeeded: 0x8080_8080_8080_8080 as UInt64)
   let byteASCIIMask = UInt8(truncatingIfNeeded: wordASCIIMask)
-
   while (address &+ i) % stride != 0 && i < count {
     guard ptr[i] & byteASCIIMask == 0 else { return false }
     i &+= 1
   }
-
   while (i &+ stride) <= count {
     let word: UInt = UnsafePointer(
       bitPattern: address &+ i
@@ -41,27 +18,22 @@ internal func _allASCII(_ input: UnsafeBufferPointer<UInt8>) -> Bool {
     guard word & wordASCIIMask == 0 else { return false }
     i &+= stride
   }
-
   while i < count {
     guard ptr[i] & byteASCIIMask == 0 else { return false }
     i &+= 1
   }
   return true
 }
-
 extension String {
-
   internal static func _uncheckedFromASCII(
     _ input: UnsafeBufferPointer<UInt8>
   ) -> String {
     if let smol = _SmallString(input) {
       return String(_StringGuts(smol))
     }
-
     let storage = __StringStorage.create(initializingFrom: input, isASCII: true)
     return storage.asString
   }
-
   @usableFromInline
   internal static func _fromASCII(
     _ input: UnsafeBufferPointer<UInt8>
@@ -69,7 +41,6 @@ extension String {
     _internalInvariant(_allASCII(input), "not actually ASCII")
     return _uncheckedFromASCII(input)
   }
-
   internal static func _fromASCIIValidating(
     _ input: UnsafeBufferPointer<UInt8>
   ) -> String? {
@@ -78,16 +49,13 @@ extension String {
     }
     return nil
   }
-
-  public // SPI(Foundation)
+  public 
   static func _tryFromUTF8(_ input: UnsafeBufferPointer<UInt8>) -> String? {
     guard case .success(let extraInfo) = validateUTF8(input) else {
       return nil
     }
-
     return String._uncheckedFromUTF8(input, isASCII: extraInfo.isASCII)
   }
-
   @usableFromInline
   internal static func _fromUTF8Repairing(
     _ input: UnsafeBufferPointer<UInt8>
@@ -101,7 +69,6 @@ extension String {
         return (repairUTF8(input, firstKnownBrokenRange: initialRange), true)
     }
   }
-
   internal static func _fromLargeUTF8Repairing(
     uninitializedCapacity capacity: Int,
     initializingWith initializer: (
@@ -111,7 +78,6 @@ extension String {
     let result = try __StringStorage.create(
       uninitializedCodeUnitCapacity: capacity,
       initializingUncheckedUTF8With: initializer)
-
     switch validateUTF8(result.codeUnits) {
     case .success(let info):
       result._updateCountAndFlags(
@@ -121,18 +87,15 @@ extension String {
       return result.asString
     case .error(let initialRange):
       defer { _fixLifetime(result) }
-      //This could be optimized to use excess tail capacity
       return repairUTF8(result.codeUnits, firstKnownBrokenRange: initialRange)
     }
   }
-
   @usableFromInline
   internal static func _uncheckedFromUTF8(
     _ input: UnsafeBufferPointer<UInt8>
   ) -> String {
     return _uncheckedFromUTF8(input, isASCII: _allASCII(input))
   }
-
   @usableFromInline
   internal static func _uncheckedFromUTF8(
     _ input: UnsafeBufferPointer<UInt8>,
@@ -141,13 +104,10 @@ extension String {
     if let smol = _SmallString(input) {
       return String(_StringGuts(smol))
     }
-
     let storage = __StringStorage.create(
       initializingFrom: input, isASCII: isASCII)
     return storage.asString
   }
-
-  // If we've already pre-scanned for ASCII, just supply the result
   @usableFromInline
   internal static func _uncheckedFromUTF8(
     _ input: UnsafeBufferPointer<UInt8>, asciiPreScanResult: Bool
@@ -155,21 +115,15 @@ extension String {
     if let smol = _SmallString(input) {
       return String(_StringGuts(smol))
     }
-
     let isASCII = asciiPreScanResult
     let storage = __StringStorage.create(
       initializingFrom: input, isASCII: isASCII)
     return storage.asString
   }
-
   @usableFromInline
   internal static func _uncheckedFromUTF16(
     _ input: UnsafeBufferPointer<UInt16>
   ) -> String {
-    // TODO(String Performance): Attempt to form smol strings
-
-    // TODO(String performance): Skip intermediary array, transcode directly
-    // into a StringStorage space.
     var contents: [UInt8] = []
     contents.reserveCapacity(input.count)
     let repaired = transcode(
@@ -179,11 +133,9 @@ extension String {
       stoppingOnError: false,
       into: { contents.append($0) })
     _internalInvariant(!repaired, "Error present")
-
     return contents.withUnsafeBufferPointer { String._uncheckedFromUTF8($0) }
   }
-
-  @inline(never) // slow path
+  @inline(never) 
   private static func _slowFromCodeUnits<
     Input: Collection,
     Encoding: Unicode.Encoding
@@ -193,10 +145,6 @@ extension String {
     repair: Bool
   ) -> (String, repairsMade: Bool)?
   where Input.Element == Encoding.CodeUnit {
-    // TODO(String Performance): Attempt to form smol strings
-
-    // TODO(String performance): Skip intermediary array, transcode directly
-    // into a StringStorage space.
     var contents: [UInt8] = []
     contents.reserveCapacity(input.underestimatedCount)
     let repaired = transcode(
@@ -206,15 +154,11 @@ extension String {
       stoppingOnError: false,
       into: { contents.append($0) })
     guard repair || !repaired else { return nil }
-
     let str = contents.withUnsafeBufferPointer { String._uncheckedFromUTF8($0) }
     return (str, repaired)
   }
-
-  @usableFromInline @inline(never) // can't be inlined w/out breaking ABI
-  @_specialize(
+  @usableFromInline @inline(never) 
     where Input == UnsafeBufferPointer<UInt8>, Encoding == Unicode.ASCII)
-  @_specialize(
     where Input == Array<UInt8>, Encoding == Unicode.ASCII)
   internal static func _fromCodeUnits<
     Input: Collection,
@@ -228,16 +172,12 @@ extension String {
     guard _fastPath(encoding == Unicode.ASCII.self) else {
       return _slowFromCodeUnits(input, encoding: encoding, repair: repair)
     }
-
-    // Helper to simplify early returns
     func resultOrSlow(_ resultOpt: String?) -> (String, repairsMade: Bool)? {
       guard let result = resultOpt else {
         return _slowFromCodeUnits(input, encoding: encoding, repair: repair)
       }
       return (result, repairsMade: false)
     }
-
-    // Fast path for untyped raw storage and known stdlib types
     if let contigBytes = input as? _HasContiguousBytes,
       contigBytes._providesContiguousBytesNoCopy {
       return resultOrSlow(contigBytes.withUnsafeBytes { rawBufPtr in
@@ -247,8 +187,6 @@ extension String {
         return String._fromASCIIValidating(buffer)
       })
     }
-
-    // Fast path for user-defined Collections
     if let strOpt = input.withContiguousStorageIfAvailable({
       (buffer: UnsafeBufferPointer<Input.Element>) -> String? in
       return String._fromASCIIValidating(
@@ -256,20 +194,17 @@ extension String {
     }) {
       return resultOrSlow(strOpt)
     }
-
     return resultOrSlow(Array(input).withUnsafeBufferPointer {
         let buffer = UnsafeRawBufferPointer($0).bindMemory(to: UInt8.self)
         return String._fromASCIIValidating(buffer)
       })
   }
-
-  public // @testable
+  public 
   static func _fromInvalidUTF16(
     _ utf16: UnsafeBufferPointer<UInt16>
   ) -> String {
     return String._fromCodeUnits(utf16, encoding: UTF16.self, repair: true)!.0
   }
-
   @usableFromInline
   internal static func _fromSubstring(
     _ substring: __shared Substring
@@ -277,17 +212,13 @@ extension String {
     if substring._offsetRange == substring.base._offsetRange {
       return substring.base
     }
-
     return String._copying(substring)
   }
-
-  @_alwaysEmitIntoClient
-  @inline(never) // slow-path
+  @inline(never) 
   internal static func _copying(_ str: String) -> String {
     return String._copying(str[...])
   }
-  @_alwaysEmitIntoClient
-  @inline(never) // slow-path
+  @inline(never) 
   internal static func _copying(_ str: Substring) -> String {
     if _fastPath(str._wholeGuts.isFastUTF8) {
       return str._wholeGuts.withFastUTF8(range: str._offsetRange) {

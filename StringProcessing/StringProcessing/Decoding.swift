@@ -1,43 +1,21 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
 /*
-
  Provide very low-level interfaces for scalar decoding.
-
  These can be faster if we assume certain invariants are
  maintained. We assert, of course, because we're not monsters.
-
  Thus they are unsafe in the following senses:
-
  - They assume validly encoded contents, otherwise UB
  - They assume any pointers passed in will be live and valid
    during execution and not concurrently written to, otherwise UB
  - They assume any pointer passed in has sufficient bounds
    for decoding a scalar, otherwise UB.
-
  String maintains these invariants for its in-memory storage.
-
  */
-
-
-// TODO: Design an "unsafe" and "assumingValid" API convention
-
 enum UnsafeAssumingValidUTF8 {
   @inlinable @inline(__always)
   static func decode(_ x: UInt8) -> Unicode.Scalar {
     _internalInvariant(UTF8.isASCII(x))
     return Unicode.Scalar(_unchecked: UInt32(x))
   }
-
   @inlinable @inline(__always)
   static func decode(
     _ x: UInt8, _ y: UInt8
@@ -48,7 +26,6 @@ enum UnsafeAssumingValidUTF8 {
     let value = ((x & 0b0001_1111) &<< 6) | continuationPayload(y)
     return Unicode.Scalar(_unchecked: value)
   }
-
   @inlinable @inline(__always)
   static func decode(
     _ x: UInt8, _ y: UInt8, _ z: UInt8
@@ -61,7 +38,6 @@ enum UnsafeAssumingValidUTF8 {
     | continuationPayload(z)
     return Unicode.Scalar(_unchecked: value)
   }
-
   @inlinable @inline(__always)
   static func decode(
     _ x: UInt8, _ y: UInt8, _ z: UInt8, _ w: UInt8
@@ -77,8 +53,6 @@ enum UnsafeAssumingValidUTF8 {
     | continuationPayload(w)
     return Unicode.Scalar(_unchecked: value)
   }
-
-  // Also, assuming we can load from those bounds...
   @inlinable
   static func decode(
     _ utf8: UnsafeByteBuffer, startingAt i: Int
@@ -98,10 +72,9 @@ enum UnsafeAssumingValidUTF8 {
         utf8[_unchecked: i &+ 3]),
               len)
     default:
-      fatalError("unreachable")//Builtin.unreachable()
+      fatalError("unreachable")
     }
   }
-
   @inlinable
   static func decode(
     _ utf8: UnsafeByteBuffer, endingAt i: Int
@@ -111,15 +84,12 @@ enum UnsafeAssumingValidUTF8 {
     _internalInvariant(len == scalarLen)
     return (scalar, len)
   }
-
   @inlinable @inline(__always)
   static func scalarLength(_ x: UInt8) -> Int {
     _internalInvariant(!UTF8.isContinuation(x))
     if UTF8.isASCII(x) { return 1 }
-    // TODO(String micro-performance): check codegen
     return (~x).leadingZeroBitCount
   }
-
   @inlinable @inline(__always)
   static func scalarLength(
     _ utf8: UnsafeByteBuffer, endingAt i: Int
@@ -131,18 +101,15 @@ enum UnsafeAssumingValidUTF8 {
     _internalInvariant(len == scalarLength(utf8[i &- len]))
     return len
   }
-
   @inlinable @inline(__always)
   static func continuationPayload(_ x: UInt8) -> UInt32 {
     return UInt32(x & 0x3F)
   }
-
   @inlinable
   static func scalarAlign(
     _ utf8: UnsafeByteBuffer, _ idx: Int
   ) -> Int {
     guard _fastPath(idx != utf8.count) else { return idx }
-
     var i = idx
     while _slowPath(UTF8.isContinuation(utf8[_unchecked: i])) {
       i &-= 1
@@ -152,12 +119,3 @@ enum UnsafeAssumingValidUTF8 {
     return i
   }
 }
-
-// TODO: Validating versions that remove that aspect of
-// unsafety. Stdlib has stuff on _StrinGuts that could be
-// at least partially refactored.
-
-// TODO: Consider UTF-16 support, but that's normally best
-// handled as a transcoding concern.
-
-

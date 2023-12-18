@@ -1,27 +1,7 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-
-// This file contains compiler intrinsics for optimized string switch
-// implementations. All functions and types declared in this file are not
-// intended to be used by switch source directly.
-
-/// The compiler intrinsic which is called to lookup a string in a table
-/// of static string case values.
-@_semantics("findStringSwitchCase")
-public // COMPILER_INTRINSIC
+public 
 func _findStringSwitchCase(
   cases: [StaticString],
   string: String) -> Int {
-
   for (idx, s) in cases.enumerated() {
     if String(_builtinStringLiteral: s.utf8Start._rawValue,
               utf8CodeUnitCount: s._utf8CodeUnitCount,
@@ -31,20 +11,16 @@ func _findStringSwitchCase(
   }
   return -1
 }
-
-@frozen // needs known size for static allocation
-public // used by COMPILER_INTRINSIC
+@frozen 
+public 
 struct _OpaqueStringSwitchCache {
   var a: Builtin.Word
   var b: Builtin.Word
 }
-
 internal typealias _StringSwitchCache = Dictionary<String, Int>
-
 internal struct _StringSwitchContext {
   internal let cases: [StaticString]
   internal let cachePtr: UnsafeMutablePointer<_StringSwitchCache>
-
   internal init(
     cases: [StaticString],
     cachePtr: UnsafeMutablePointer<_StringSwitchCache>
@@ -53,21 +29,11 @@ internal struct _StringSwitchContext {
     self.cachePtr = cachePtr
   }
 }
-
-/// The compiler intrinsic which is called to lookup a string in a table
-/// of static string case values.
-///
-/// The first time this function is called, a cache is built and stored
-/// in \p cache. Consecutive calls use the cache for faster lookup.
-/// The \p cases array must not change between subsequent calls with the
-/// same \p cache.
-@_semantics("findStringSwitchCaseWithCache")
-public // COMPILER_INTRINSIC
+public 
 func _findStringSwitchCaseWithCache(
   cases: [StaticString],
   string: String,
   cache: inout _OpaqueStringSwitchCache) -> Int {
-
 #if $BuiltinUnprotectedAddressOf
   let ptr = UnsafeMutableRawPointer(Builtin.unprotectedAddressOf(&cache))
 #else
@@ -87,15 +53,12 @@ func _findStringSwitchCaseWithCache(
   }
   return -1
 }
-
-/// Builds the string switch case.
 internal func _createStringTableCache(_ cacheRawPtr: Builtin.RawPointer) {
   let context = UnsafePointer<_StringSwitchContext>(cacheRawPtr).pointee
   var cache = _StringSwitchCache()
   cache.reserveCapacity(context.cases.count)
   _internalInvariant(
     MemoryLayout<_StringSwitchCache>.size <= MemoryLayout<Builtin.Word>.size)
-
   for (idx, s) in context.cases.enumerated() {
     let key = String(_builtinStringLiteral: s.utf8Start._rawValue,
                      utf8CodeUnitCount: s._utf8CodeUnitCount,
@@ -104,4 +67,3 @@ internal func _createStringTableCache(_ cacheRawPtr: Builtin.RawPointer) {
   }
   context.cachePtr.initialize(to: cache)
 }
-

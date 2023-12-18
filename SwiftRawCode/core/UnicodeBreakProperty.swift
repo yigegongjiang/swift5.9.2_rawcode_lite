@@ -1,17 +1,4 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-
 import SwiftShims
-
 extension Unicode {
   internal enum _GraphemeBreakProperty {
     case any
@@ -27,15 +14,12 @@ extension Unicode {
     case t
     case v
     case zwj
-
     init(from scalar: Unicode.Scalar) {
       switch scalar.value {
-      // Some fast paths for ascii characters...
       case 0x0 ... 0x1F:
         self = .control
       case 0x20 ... 0x7E:
         self = .any
-
       case 0x200D:
         self = .zwj
       case 0x1100 ... 0x115F,
@@ -60,9 +44,7 @@ extension Unicode {
       case 0xE01F0 ... 0xE0FFF:
         self = .control
       default:
-        // Otherwise, default to binary searching the data array.
         let rawEnumValue = _swift_stdlib_getGraphemeBreakProperty(scalar.value)
-
         switch rawEnumValue {
         case 0:
           self = .control
@@ -72,8 +54,6 @@ extension Unicode {
           self = .prepend
         case 3:
           self = .spacingMark
-
-        // Extended pictographic uses 2 values for its representation.
         case 4, 5:
           self = .extendedPictographic
         default:
@@ -83,7 +63,6 @@ extension Unicode {
     }
   }
 }
-
 extension Unicode {
   internal enum _WordBreakProperty {
     case aLetter
@@ -104,7 +83,6 @@ extension Unicode {
     case singleQuote
     case wSegSpace
     case zwj
-    
     init(from scalar: Unicode.Scalar) {
       switch scalar.value {
       case 0xA ... 0xD,
@@ -121,7 +99,6 @@ extension Unicode {
         self = .regionalIndicator
       default:
         let rawValue = _swift_stdlib_getWordBreakProperty(scalar.value)
-        
         switch rawValue {
         case 0:
           self = .extend

@@ -1,14 +1,3 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
 protocol CollectionConsumer {
   associatedtype Consumed: Collection
   func consuming(
@@ -16,14 +5,10 @@ protocol CollectionConsumer {
     in range: Range<Consumed.Index>
   ) -> Consumed.Index?
 }
-
 extension CollectionConsumer {
   func consuming(_ consumed: Consumed) -> Consumed.Index? {
     consuming(consumed, in: consumed.startIndex..<consumed.endIndex)
   }
-  
-  // TODO: `@discardableResult`?
-  /// Returns `true` if the consume was successful.
   func consume(_ consumed: inout Consumed) -> Bool
     where Consumed.SubSequence == Consumed
   {
@@ -32,9 +17,6 @@ extension CollectionConsumer {
     return true
   }
 }
-
-// MARK: Consuming from the back
-
 protocol BidirectionalCollectionConsumer: CollectionConsumer
   where Consumed: BidirectionalCollection
 {
@@ -43,12 +25,10 @@ protocol BidirectionalCollectionConsumer: CollectionConsumer
     in range: Range<Consumed.Index>
   ) -> Consumed.Index?
 }
-
 extension BidirectionalCollectionConsumer {
   func consumingBack(_ consumed: Consumed) -> Consumed.Index? {
     consumingBack(consumed, in: consumed.startIndex..<consumed.endIndex)
   }
-  
   func consumeBack(_ consumed: inout Consumed) -> Bool
     where Consumed.SubSequence == Consumed
   {

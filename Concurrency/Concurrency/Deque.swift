@@ -1,23 +1,9 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-
 import Swift
-
 @available(SwiftStdlib 5.1, *)
 struct _Deque<Element> {
   internal struct _UnsafeHandle {
     let _header: UnsafeMutablePointer<_Storage._Header>
     let _elements: UnsafeMutablePointer<Element>?
-
     init(
       header: UnsafeMutablePointer<_Storage._Header>,
       elements: UnsafeMutablePointer<Element>?,
@@ -26,20 +12,16 @@ struct _Deque<Element> {
       self._header = header
       self._elements = elements
     }
-    
     var header: _Storage._Header {
       _header.pointee
     }
-    
     var capacity: Int {
       _header.pointee.capacity
     }
-    
     var count: Int {
       get { _header.pointee.count }
       nonmutating set { _header.pointee.count = newValue }
     }
-    
     internal func slot(after slot: Int) -> Int {
       _internalInvariant(slot < capacity)
       let position = slot + 1
@@ -48,8 +30,6 @@ struct _Deque<Element> {
       }
       return position
     }
-
-    
     internal func slot(_ slot: Int, offsetBy delta: Int) -> Int {
       _internalInvariant(slot <= capacity)
       let position = slot + delta
@@ -60,17 +40,14 @@ struct _Deque<Element> {
       }
       return position
     }
-    
     internal var endSlot: Int {
       slot(startSlot, offsetBy: count)
     }
-    
     internal func uncheckedAppend(_ element: Element) {
       _internalInvariant(count < capacity)
       ptr(at: endSlot).initialize(to: element)
       count += 1
     }
-    
     internal func uncheckedRemoveFirst() -> Element {
       _internalInvariant(count > 0)
       let result = ptr(at: startSlot).move()
@@ -78,7 +55,6 @@ struct _Deque<Element> {
       count -= 1
       return result
     }
-    
     internal func uncheckedRemoveFirstIfPresent() -> Element? {
       if count > 0 {
         let result = ptr(at: startSlot).move()
@@ -89,12 +65,9 @@ struct _Deque<Element> {
         return nil
       }
     }
-    
     struct _UnsafeWrappedBuffer {
       internal let first: UnsafeBufferPointer<Element>
-
       internal let second: UnsafeBufferPointer<Element>?
-
       internal init(
         _ first: UnsafeBufferPointer<Element>,
         _ second: UnsafeBufferPointer<Element>? = nil
@@ -103,14 +76,12 @@ struct _Deque<Element> {
         self.second = second
         _internalInvariant(first.count > 0 || second == nil)
       }
-
       internal init(
         start: UnsafePointer<Element>,
         count: Int
       ) {
         self.init(UnsafeBufferPointer(start: start, count: count))
       }
-      
       internal init(
         first start1: UnsafePointer<Element>,
         count count1: Int,
@@ -120,15 +91,11 @@ struct _Deque<Element> {
         self.init(UnsafeBufferPointer(start: start1, count: count1),
                   UnsafeBufferPointer(start: start2, count: count2))
       }
-
       internal var count: Int { first.count + (second?.count ?? 0) }
     }
-    
     internal struct _UnsafeMutableWrappedBuffer {
       internal let first: UnsafeMutableBufferPointer<Element>
-
       internal let second: UnsafeMutableBufferPointer<Element>?
-
       internal init(
         _ first: UnsafeMutableBufferPointer<Element>,
         _ second: UnsafeMutableBufferPointer<Element>? = nil
@@ -137,14 +104,12 @@ struct _Deque<Element> {
         self.second = second?.count == 0 ? nil : second
         _internalInvariant(first.count > 0 || second == nil)
       }
-
       internal init(
         start: UnsafeMutablePointer<Element>,
         count: Int
       ) {
         self.init(UnsafeMutableBufferPointer(start: start, count: count))
       }
-
       internal init(
         first start1: UnsafeMutablePointer<Element>,
         count count1: Int,
@@ -154,13 +119,11 @@ struct _Deque<Element> {
         self.init(UnsafeMutableBufferPointer(start: start1, count: count1),
                   UnsafeMutableBufferPointer(start: start2, count: count2))
       }
-
       internal init(mutating buffer: _UnsafeWrappedBuffer) {
         self.init(.init(mutating: buffer.first),
                   buffer.second.map { .init(mutating: $0) })
       }
     }
-    
     internal func segments() -> _UnsafeWrappedBuffer {
       let wrap = capacity - startSlot
       if count <= wrap {
@@ -169,21 +132,17 @@ struct _Deque<Element> {
       return .init(first: ptr(at: startSlot), count: wrap,
                    second: ptr(at: .zero), count: count - wrap)
     }
-    
     internal func mutableSegments() -> _UnsafeMutableWrappedBuffer {
       return .init(mutating: segments())
     }
-    
     var startSlot: Int {
       get { _header.pointee.startSlot }
       nonmutating set { _header.pointee.startSlot = newValue }
     }
-    
     func ptr(at slot: Int) -> UnsafeMutablePointer<Element> {
       _internalInvariant(slot >= 0 && slot <= capacity)
       return _elements! + slot
     }
-
     @discardableResult
     func initialize(
       at start: Int,
@@ -194,7 +153,6 @@ struct _Deque<Element> {
       ptr(at: start).initialize(from: source.baseAddress!, count: source.count)
       return start + source.count
     }
-    
     @discardableResult
     func moveInitialize(
       at start: Int,
@@ -205,7 +163,6 @@ struct _Deque<Element> {
       ptr(at: start).moveInitialize(from: source.baseAddress!, count: source.count)
       return start + source.count
     }
-    
     internal func copyElements() -> _Storage {
       let object = _Storage._DequeBuffer.create(
         minimumCapacity: capacity,
@@ -221,7 +178,6 @@ struct _Deque<Element> {
       }
       return result
     }
-    
     internal func moveElements(minimumCapacity: Int) -> _Storage {
       let count = self.count
       _internalInvariant(minimumCapacity >= count)
@@ -251,34 +207,26 @@ struct _Deque<Element> {
       return result
     }
   }
-  
   enum _Storage {
     internal struct _Header {
       var capacity: Int
-
       var count: Int
-
       var startSlot: Int
-
       init(capacity: Int, count: Int, startSlot: Int) {
         self.capacity = capacity
         self.count = count
         self.startSlot = startSlot
       }
     }
-    
     internal typealias _Buffer = ManagedBufferPointer<_Header, Element>
-
     case empty
     case buffer(_Buffer)
-    
     internal class _DequeBuffer: ManagedBuffer<_Header, Element> {
       deinit {
         self.withUnsafeMutablePointers { header, elements in
           let capacity = header.pointee.capacity
           let count = header.pointee.count
           let startSlot = header.pointee.startSlot
-
           if startSlot + count <= capacity {
             (elements + startSlot).deinitialize(count: count)
           } else {
@@ -289,28 +237,22 @@ struct _Deque<Element> {
         }
       }
     }
-    
     internal init(_buffer: _Buffer) {
       self = .buffer(_buffer)
     }
-    
     internal init() {
       self = .empty
     }
-    
     internal init(_ object: _DequeBuffer) {
       self.init(_buffer: _Buffer(unsafeBufferObject: object))
     }
-    
     internal var capacity: Int {
       switch self {
       case .empty: return 0
       case .buffer(let buffer):
         return buffer.withUnsafeMutablePointerToHeader { $0.pointee.capacity }
       }
-      
     }
-    
     internal mutating func ensure(
       minimumCapacity: Int
     ) {
@@ -318,16 +260,13 @@ struct _Deque<Element> {
         _ensure(minimumCapacity: minimumCapacity)
       }
     }
-    
     internal static var growthFactor: Double { 1.5 }
-
     internal func _growCapacity(
       to minimumCapacity: Int
     ) -> Int {
       return Swift.max(Int((Self.growthFactor * Double(capacity)).rounded(.up)),
                        minimumCapacity)
     }
-    
     internal mutating func _ensure(
       minimumCapacity: Int
     ) {
@@ -340,16 +279,13 @@ struct _Deque<Element> {
         }
       }
     }
-    
     internal var count: Int {
       switch self {
       case .empty: return 0
       case .buffer(let buffer):
         return buffer.withUnsafeMutablePointerToHeader { $0.pointee.count }
       }
-      
     }
-    
     internal func read<R>(_ body: (_UnsafeHandle) throws -> R) rethrows -> R {
       switch self {
       case .empty:
@@ -365,9 +301,7 @@ struct _Deque<Element> {
           return try body(handle)
         }
       }
-      
     }
-    
     internal func update<R>(_ body: (_UnsafeHandle) throws -> R) rethrows -> R {
       switch self {
       case .empty:
@@ -385,35 +319,26 @@ struct _Deque<Element> {
       }
     }
   }
-  
-
   internal var _storage: _Storage
-  
   init() {
     _storage = _Storage()
   }
-  
   var count: Int { _storage.count }
-  
   mutating func append(_ newElement: Element) {
     _storage.ensure(minimumCapacity: _storage.count + 1)
     _storage.update {
       $0.uncheckedAppend(newElement)
     }
   }
-  
   @discardableResult
   mutating func removeFirst() -> Element {
     return _storage.update { $0.uncheckedRemoveFirst() }
   }
-  
   @discardableResult
   mutating func removeFirstIfPresent() -> Element? {
     return _storage.update { $0.uncheckedRemoveFirstIfPresent() }
   }
 }
-
-@_alwaysEmitIntoClient @_transparent
 internal func _internalInvariant(
   _ condition: @autoclosure () -> Bool,
   _ message: @autoclosure () -> String = String(),

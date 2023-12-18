@@ -1,25 +1,9 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
-
-// TODO: Remove this protocol (and/or reuse it for something like a FastProcessor)
 extension Processor: TracedProcessor {
   var cycleCount: Int { metrics.cycleCount }
   var isTracingEnabled: Bool { metrics.isTracingEnabled }
-
   var isFailState: Bool { state == .fail }
   var isAcceptState: Bool { state == .accept }
-
   var currentPC: InstructionAddress { controller.pc }
-
   func formatSavePoints() -> String {
     if !savePoints.isEmpty {
       var result = "save points:\n"
@@ -31,7 +15,6 @@ extension Processor: TracedProcessor {
     return ""
   }
 }
-
 extension Instruction: CustomStringConvertible {
   var description: String {
     switch opcode {
@@ -111,7 +94,6 @@ extension Instruction: CustomStringConvertible {
     }
   }
 }
-
 extension Processor.SavePoint {
   func describe(in input: String) -> String {
     let posStr: String

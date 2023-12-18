@@ -1,34 +1,5 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-
 #if SWIFT_ENABLE_REFLECTION
-
-/// Dumps the given object's contents using its mirror to the specified output
-/// stream.
-///
-/// - Parameters:
-///   - value: The value to output to the `target` stream.
-///   - target: The stream to use for writing the contents of `value`.
-///   - name: A label to use when writing the contents of `value`. When `nil`
-///     is passed, the label is omitted. The default is `nil`.
-///   - indent: The number of spaces to use as an indent for each line of the
-///     output. The default is `0`.
-///   - maxDepth: The maximum depth to descend when writing the contents of a
-///     value that has nested components. The default is `Int.max`.
-///   - maxItems: The maximum number of elements for which to write the full
-///     contents. The default is `Int.max`.
-/// - Returns: The instance passed as `value`.
 @discardableResult
-@_semantics("optimize.sil.specialize.generic.never")
 public func dump<T, TargetStream: TextOutputStream>(
   _ value: T,
   to target: inout TargetStream,
@@ -51,22 +22,7 @@ public func dump<T, TargetStream: TextOutputStream>(
     visitedItems: &visitedItems)
   return value
 }
-
-/// Dumps the given object's contents using its mirror to standard output.
-///
-/// - Parameters:
-///   - value: The value to output to the `target` stream.
-///   - name: A label to use when writing the contents of `value`. When `nil`
-///     is passed, the label is omitted. The default is `nil`.
-///   - indent: The number of spaces to use as an indent for each line of the
-///     output. The default is `0`.
-///   - maxDepth: The maximum depth to descend when writing the contents of a
-///     value that has nested components. The default is `Int.max`.
-///   - maxItems: The maximum number of elements for which to write the full
-///     contents. The default is `Int.max`.
-/// - Returns: The instance passed as `value`.
 @discardableResult
-@_semantics("optimize.sil.specialize.generic.never")
 public func dump<T>(
   _ value: T,
   name: String? = nil,
@@ -83,9 +39,6 @@ public func dump<T>(
     maxDepth: maxDepth,
     maxItems: maxItems)
 }
-
-/// Dump an object's contents. User code should use dump().
-@_semantics("optimize.sil.specialize.generic.never")
 internal func _dump_unlocked<TargetStream: TextOutputStream>(
   _ value: Any,
   to target: inout TargetStream,
@@ -97,29 +50,22 @@ internal func _dump_unlocked<TargetStream: TextOutputStream>(
 ) {
   guard maxItemCounter > 0 else { return }
   maxItemCounter -= 1
-
   for _ in 0..<indent { target.write(" ") }
-
   let mirror = Mirror(reflecting: value)
   let count = mirror.children.count
   let bullet = count == 0    ? "-"
              : maxDepth <= 0 ? "▹" : "▿"
   target.write(bullet)
   target.write(" ")
-
   if let name = name {
     target.write(name)
     target.write(": ")
   }
-  // This takes the place of the old mirror API's 'summary' property
   _dumpPrint_unlocked(value, mirror, &target)
-
   let id: ObjectIdentifier?
   if type(of: value) is AnyObject.Type {
-    // Object is a class (but not an ObjC-bridged struct)
     id = ObjectIdentifier(_unsafeDowncastToAnyObject(fromAny: value))
   } else if let metatypeInstance = value as? Any.Type {
-    // Object is a metatype
     id = ObjectIdentifier(metatypeInstance)
   } else {
     id = nil
@@ -136,11 +82,8 @@ internal func _dump_unlocked<TargetStream: TextOutputStream>(
     target.write(" #")
     _print_unlocked(identifier, &target)
   }
-
   target.write("\n")
-
   guard maxDepth > 0 else { return }
-
   if let superclassMirror = mirror.superclassMirror {
     _dumpSuperclass_unlocked(
       mirror: superclassMirror,
@@ -150,7 +93,6 @@ internal func _dump_unlocked<TargetStream: TextOutputStream>(
       maxItemCounter: &maxItemCounter,
       visitedItems: &visitedItems)
   }
-
   var currentIndex = mirror.children.startIndex
   for i in 0..<count {
     if maxItemCounter <= 0 {
@@ -168,7 +110,6 @@ internal func _dump_unlocked<TargetStream: TextOutputStream>(
       }
       return
     }
-
     let (name, child) = mirror.children[currentIndex]
     mirror.children.formIndex(after: &currentIndex)
     _dump_unlocked(
@@ -181,10 +122,6 @@ internal func _dump_unlocked<TargetStream: TextOutputStream>(
       visitedItems: &visitedItems)
   }
 }
-
-/// Dump information about an object's superclass, given a mirror reflecting
-/// that superclass.
-@_semantics("optimize.sil.specialize.generic.never")
 internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
   mirror: Mirror,
   to target: inout TargetStream,
@@ -195,9 +132,7 @@ internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
 ) {
   guard maxItemCounter > 0 else { return }
   maxItemCounter -= 1
-
   for _ in 0..<indent { target.write(" ") }
-
   let count = mirror.children.count
   let bullet = count == 0    ? "-"
              : maxDepth <= 0 ? "▹" : "▿"
@@ -205,9 +140,7 @@ internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
   target.write(" super: ")
   _debugPrint_unlocked(mirror.subjectType, &target)
   target.write("\n")
-
   guard maxDepth > 0 else { return }
-
   if let superclassMirror = mirror.superclassMirror {
     _dumpSuperclass_unlocked(
       mirror: superclassMirror,
@@ -217,7 +150,6 @@ internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
       maxItemCounter: &maxItemCounter,
       visitedItems: &visitedItems)
   }
-
   var currentIndex = mirror.children.startIndex
   for i in 0..<count {
     if maxItemCounter <= 0 {
@@ -235,7 +167,6 @@ internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
       }
       return
     }
-
     let (name, child) = mirror.children[currentIndex]
     mirror.children.formIndex(after: &currentIndex)
     _dump_unlocked(
@@ -248,5 +179,4 @@ internal func _dumpSuperclass_unlocked<TargetStream: TextOutputStream>(
       visitedItems: &visitedItems)
   }
 }
-
-#endif // SWIFT_ENABLE_REFLECTION
+#endif 

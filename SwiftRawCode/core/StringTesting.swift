@@ -1,32 +1,15 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
-//===----------------------------------------------------------------------===//
-
-// Declarations to enable ease-of-testing
-
-public // @testable
+public 
 struct _StringRepresentation {
   public var _isASCII: Bool
   public var _count: Int
   public var _capacity: Int
-
   public enum _Form {
     case _small
     case _cocoa(object: AnyObject)
     case _native(object: AnyObject)
     case _immortal(address: UInt)
-    // TODO: shared native
   }
   public var _form: _Form
-
   public var _objectIdentifier: ObjectIdentifier? {
     switch _form {
       case ._cocoa(let object): return ObjectIdentifier(object)
@@ -35,13 +18,10 @@ struct _StringRepresentation {
     }
   }
 }
-
 extension String {
-  public // @testable
+  public 
   func _classify() -> _StringRepresentation { return _guts._classify() }
-
-  @_alwaysEmitIntoClient
-  public // @testable
+  public 
   func _deconstructUTF8<ToPointer: _Pointer>(
     scratch: UnsafeMutableRawBufferPointer?
   ) -> (
@@ -54,7 +34,6 @@ extension String {
     _guts._deconstructUTF8(scratch: scratch)
   }
 }
-
 extension _StringGuts {
   internal func _classify() -> _StringRepresentation {
     var result = _StringRepresentation(
@@ -71,8 +50,6 @@ extension _StringGuts {
       result._form = ._cocoa(object: _object.cocoaObject)
       return result
     }
-
-    // TODO: shared native
     _internalInvariant(_object.providesFastUTF8)
     if _object.isImmortal {
       result._form = ._immortal(
@@ -86,12 +63,8 @@ extension _StringGuts {
     }
     fatalError()
   }
-
-
 /*
-
  Deconstruct the string into contiguous UTF-8, allocating memory if necessary
-
 ┌────────────────────╥───────────────────────┬─────────────────────┬─────────────┬─────────────────┐
 │ Form               ║ owner                 │ pointer+length      │ usesScratch │ allocatedMemory │
 ├────────────────────╫───────────────────────┼─────────────────────┼─────────────┼─────────────────┤
@@ -109,10 +82,8 @@ extension _StringGuts {
 ╞════════════════════╬═══════════════════════╪═════════════════════╪═════════════╪═════════════════╡
 │ foreign            ║ extra allocation      │ `owner` pointer     │ false       │ true            │
 └────────────────────╨───────────────────────┴─────────────────────┴─────────────┴─────────────────┘
-
 */
-  @_alwaysEmitIntoClient
-  internal // TODO: figure out if this works as a compiler intrinsic
+  internal 
   func _deconstructUTF8<ToPointer: _Pointer>(
     scratch: UnsafeMutableRawBufferPointer?
   ) -> (
@@ -122,8 +93,6 @@ extension _StringGuts {
     usesScratch: Bool,
     allocatedMemory: Bool
   ) {
-
-    // If we're small, try to copy into the scratch space provided
     if self.isSmall {
       let smol = self.asSmall
       if let scratch = scratch, scratch.count > smol.count {
@@ -149,7 +118,6 @@ extension _StringGuts {
         length: self._object.count,
         usesScratch: false, allocatedMemory: false)
     }
-
     let (object, ptr, len) = self._allocateForDeconstruct()
     return (
       owner: object,
@@ -158,9 +126,7 @@ extension _StringGuts {
       usesScratch: false,
       allocatedMemory: true)
   }
-
-  @_alwaysEmitIntoClient
-  @inline(never) // slow path
+  @inline(never) 
   internal
   func _allocateForDeconstruct() -> (
     owner: AnyObject,
@@ -170,8 +136,6 @@ extension _StringGuts {
     let utf8 = Array(String(self).utf8) + [0]
     let (owner, ptr): (AnyObject?, UnsafeRawPointer) =
       _convertConstArrayToPointerArgument(utf8)
-
-    // Array's owner cannot be nil, even though it is declared optional...
     return (owner: owner!, ptr, length: utf8.count - 1)
   }
 }

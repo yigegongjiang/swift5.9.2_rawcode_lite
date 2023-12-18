@@ -1,17 +1,3 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
-@_implementationOnly import _RegexParser
-
-// TODO: Where should this live? Inside TypeConstruction?
 func constructExistentialOutputComponent(
   from input: String,
   component: (range: Range<String.Index>, value: Any?)?,
@@ -36,7 +22,6 @@ func constructExistentialOutputComponent(
     return _openExistential(underlyingTy, do: makeNil)
   }
 }
-
 @available(SwiftStdlib 5.7, *)
 extension AnyRegexOutput.Element {
   func existentialOutputComponent(
@@ -48,17 +33,13 @@ extension AnyRegexOutput.Element {
       optionalCount: representation.optionalDepth
     )
   }
-
   func slice(from input: String) -> Substring? {
     guard let r = range else { return nil }
     return input[r]
   }
 }
-
 @available(SwiftStdlib 5.7, *)
 extension Sequence where Element == AnyRegexOutput.Element {
-  // FIXME: This is a stop gap where we still slice the input
-  // and traffic through existentials
   @available(SwiftStdlib 5.7, *)
   func existentialOutput(from input: String) -> Any {
     let elements = filter(\.representation.visibleInTypedOutput).map {
@@ -68,7 +49,6 @@ extension Sequence where Element == AnyRegexOutput.Element {
       ? elements[0]
       : TypeConstruction.tuple(of: elements)
   }
-
   func slices(from input: String) -> [Substring?] {
     self.map { $0.slice(from: input) }
   }

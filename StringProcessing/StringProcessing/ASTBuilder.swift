@@ -1,32 +1,15 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See https://swift.org/LICENSE.txt for license information
-//
-//===----------------------------------------------------------------------===//
-
 /*
-
 These functions are temporary AST construction helpers. As
 the AST gets more and more source-location tracking, we'll
 want easier migration paths for our parser tests (which
 construct and compare location-less AST nodes) as well as the
 result builder DSL (which has a different notion of location).
-
 Without real namespaces and `using`, attempts at
 pseudo-namespaces tie the use site to being nested inside a
 type. So for now, these are global, but they will likely be
 namespaced in the future if/when clients are weaned off the
 AST.
-
 */
-
-@_implementationOnly import _RegexParser
-
 func alt(_ asts: [AST.Node]) -> AST.Node {
   return .alternation(
     .init(asts, pipes: Array(repeating: .fake, count: asts.count - 1))
@@ -35,26 +18,21 @@ func alt(_ asts: [AST.Node]) -> AST.Node {
 func alt(_ asts: AST.Node...) -> AST.Node {
   alt(asts)
 }
-
 func concat(_ asts: [AST.Node]) -> AST.Node {
   .concatenation(.init(asts, .fake))
 }
 func concat(_ asts: AST.Node...) -> AST.Node {
   concat(asts)
 }
-
 func empty() -> AST.Node {
   .empty(.init(.fake))
 }
-
 func ast(_ root: AST.Node, opts: [AST.GlobalMatchingOption.Kind]) -> AST {
   .init(root, globalOptions: .init(opts.map { .init($0, .fake) }), diags: Diagnostics())
 }
-
 func ast(_ root: AST.Node, opts: AST.GlobalMatchingOption.Kind...) -> AST {
   ast(root, opts: opts)
 }
-
 func group(
   _ kind: AST.Group.Kind, _ child: AST.Node
 ) -> AST.Node {
@@ -128,7 +106,6 @@ func changeMatchingOptions(
 ) -> AST.Node {
   atom(.changeMatchingOptions(seq))
 }
-
 func matchingOptions(
   adding: [AST.MatchingOption.Kind] = [],
   removing: [AST.MatchingOption.Kind] = []
@@ -153,7 +130,6 @@ func unsetMatchingOptions(
 ) -> AST.MatchingOptionSequence {
   unsetMatchingOptions(adding: adding)
 }
-
 func ref(_ n: Int?) -> AST.Reference.Kind {
   .absolute(.init(n, at: .fake))
 }
@@ -166,7 +142,6 @@ func ref(minus n: Int?) -> AST.Reference.Kind {
 func ref(named n: String) -> AST.Reference.Kind {
   .named(n)
 }
-
 func ref(_ n: Int?, recursionLevel: Int? = nil) -> AST.Reference {
   .init(
     ref(n), recursionLevel: recursionLevel.map { .init($0, at: .fake) },
@@ -210,14 +185,12 @@ func groupCondition(
 ) -> AST.Conditional.Condition.Kind {
   .group(.init(.init(faking: kind), child, .fake))
 }
-
 func pcreCallout(number: Int?) -> AST.Node {
   atom(.callout(.pcre(.init(.init(faking: .number(.init(number, at: .fake)))))))
 }
 func pcreCallout(string: String) -> AST.Node {
   atom(.callout(.pcre(.init(.init(faking: .string(string))))))
 }
-
 func absentRepeater(_ child: AST.Node) -> AST.Node {
   .absentFunction(.init(.repeater(child), start: .fake, location: .fake))
 }
@@ -229,12 +202,10 @@ func absentExpression(_ absentee: AST.Node, _ child: AST.Node) -> AST.Node {
 }
 func absentStopper(_ absentee: AST.Node) -> AST.Node {
   .absentFunction(.init(.stopper(absentee), start: .fake, location: .fake))
-
 }
 func absentRangeClear() -> AST.Node {
   .absentFunction(.init(.clearer, start: .fake, location: .fake))
 }
-
 func onigurumaNamedCallout(
   _ name: String, tag: String? = nil, args: String...
 ) -> AST.Node {
@@ -244,7 +215,6 @@ func onigurumaNamedCallout(
     args: args.isEmpty ? nil : .init(.fake, args.map { .init(faking: $0) }, .fake)
   ))))
 }
-
 func onigurumaCalloutOfContents(
   _ contents: String, tag: String? = nil,
   direction: AST.Atom.Callout.OnigurumaOfContents.Direction = .inProgress
@@ -255,7 +225,6 @@ func onigurumaCalloutOfContents(
     direction: .init(faking: direction)
   ))))
 }
-
 func backtrackingDirective(
   _ kind: AST.Atom.BacktrackingDirective.Kind, name: String? = nil
 ) -> AST.Node {
@@ -263,7 +232,6 @@ func backtrackingDirective(
     .init(.init(faking: kind), name: name.map { .init(faking: $0) })
   ))
 }
-
 func quant(
   _ amount: AST.Quantification.Amount,
   _ kind: AST.Quantification.Kind = .eager,
@@ -320,7 +288,6 @@ func quantRange(
     .init(r.lowerBound, at: .fake), .init(r.upperBound, at: .fake)
   ), kind, child)
 }
-
 func charClass(
   _ members: AST.CustomCharacterClass.Member...,
   inverted: Bool = false
@@ -341,7 +308,6 @@ func charClass(
     .fake)
   return .custom(cc)
 }
-
 func setOp(
   _ lhs: AST.CustomCharacterClass.Member...,
   op: AST.CustomCharacterClass.SetOp,
@@ -349,20 +315,15 @@ func setOp(
 ) -> AST.CustomCharacterClass.Member {
   .setOperation(lhs, .init(faking: op), rhs)
 }
-
 func quote(_ s: String) -> AST.Node {
   .quote(.init(s, .fake))
 }
 func quote_m(_ s: String) -> AST.CustomCharacterClass.Member {
   .quote(.init(s, .fake))
 }
-
-// MARK: - Atoms
-
 func atom(_ k: AST.Atom.Kind) -> AST.Node {
   .atom(.init(k, .fake))
 }
-
 func escaped(
   _ e: AST.Atom.EscapedBuiltin
 ) -> AST.Node {
@@ -377,7 +338,6 @@ func scalar_a(_ s: Unicode.Scalar) -> AST.Atom {
 func scalar_m(_ s: Unicode.Scalar) -> AST.CustomCharacterClass.Member {
   .atom(scalar_a(s))
 }
-
 func scalarSeq(_ s: Unicode.Scalar...) -> AST.Node {
   .atom(scalarSeq_a(s))
 }
@@ -390,7 +350,6 @@ func scalarSeq_a(_ s: [Unicode.Scalar]) -> AST.Atom {
 func scalarSeq_m(_ s: Unicode.Scalar...) -> AST.CustomCharacterClass.Member {
   .atom(scalarSeq_a(s))
 }
-
 func backreference(_ r: AST.Reference.Kind, recursionLevel: Int? = nil) -> AST.Node {
   atom(.backreference(.init(
     r, recursionLevel: recursionLevel.map { .init($0, at: .fake) }, innerLoc: .fake
@@ -399,7 +358,6 @@ func backreference(_ r: AST.Reference.Kind, recursionLevel: Int? = nil) -> AST.N
 func subpattern(_ r: AST.Reference.Kind) -> AST.Node {
   atom(.subpattern(.init(r, innerLoc: .fake)))
 }
-
 func prop(
   _ kind: AST.Atom.CharacterProperty.Kind,
   inverted: Bool = false
@@ -411,15 +369,11 @@ func posixProp(
 ) -> AST.Node {
   atom(.property(.init(kind, isInverted: inverted, isPOSIX: true)))
 }
-
-// Raw atom constructing variant
 func atom_a(
   _ k: AST.Atom.Kind
 ) -> AST.Atom {
   AST.Atom(k, .fake)
 }
-
-// CustomCC member variant
 func atom_m(
   _ k: AST.Atom.Kind
 ) -> AST.CustomCharacterClass.Member {
